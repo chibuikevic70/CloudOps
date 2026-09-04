@@ -303,24 +303,14 @@ resource "aws_ecs_service" "cloudops" {
   }
 }
 
-resource "aws_iam_openid_connect_provider" "github" {
+data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
-
-  client_id_list = [
-    "sts.amazonaws.com"
-  ]
-
-  thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1"
-  ]
-
-  tags = {
-    Project = var.project_name
-  }
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role" "github_actions" {
-  name = "${var.project_name}-github-actions"
+  name = "cloudops-github-actions"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -330,7 +320,7 @@ resource "aws_iam_role" "github_actions" {
         Effect = "Allow"
 
         Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
+          Federated = data.aws_iam_openid_connect_provider.github.arn
         }
 
         Action = "sts:AssumeRoleWithWebIdentity"
@@ -338,10 +328,7 @@ resource "aws_iam_role" "github_actions" {
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-
-          StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:chibuikevic70/CloudOps:*"
+            "token.actions.githubusercontent.com:sub" = "repo:chibuikevic70@300115790/CloudOps@1346108160"
           }
         }
       }
@@ -381,88 +368,13 @@ resource "aws_iam_role_policy" "github_actions_ecr" {
           "ecr:UploadLayerPart"
         ]
 
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "github_actions_ecs" {
-  name = "${var.project_name}-github-ecs"
-  role = aws_iam_role.github_actions.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-
-    Statement = [
-      {
-        Effect = "Allow"
-
-        Action = [
-          "ecs:DescribeServices",
-          "ecs:DescribeTaskDefinition",
-          "ecs:RegisterTaskDefinition",
-          "ecs:UpdateService"
-        ]
-
-        Resource = "*"
-      },
-
-      {
-        Effect = "Allow"
-
-        Action = [
-          "iam:PassRole"
-        ]
-
-        Resource = aws_iam_role.ecs_execution.arn
-      }
-    ]
-  })
-}
-
-data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
-}
-
-data "aws_caller_identity" "current" {}
-
-
-resource "aws_iam_role_policy" "github_ecr" {
-  name = "${var.project_name}-github-ecr"
-  role = aws_iam_role.github_actions.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-
-    Statement = [
-      {
-        Effect = "Allow"
-
-        Action = [
-          "ecr:GetAuthorizationToken"
-        ]
-
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-
-        Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:CompleteLayerUpload",
-          "ecr:InitiateLayerUpload",
-          "ecr:PutImage",
-          "ecr:UploadLayerPart"
-        ]
-
         Resource = "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/cloudops-api"
       }
     ]
   })
 }
 
-resource "aws_iam_role_policy" "github_ecs" {
+resource "aws_iam_role_policy" "github_actions_ecs" {
   name = "${var.project_name}-github-ecs"
   role = aws_iam_role.github_actions.id
 
